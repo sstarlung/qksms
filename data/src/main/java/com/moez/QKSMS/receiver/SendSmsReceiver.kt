@@ -24,6 +24,9 @@ import android.content.Intent
 import com.moez.QKSMS.interactor.RetrySending
 import com.moez.QKSMS.repository.MessageRepository
 import dagger.android.AndroidInjection
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 class SendSmsReceiver : BroadcastReceiver() {
@@ -34,13 +37,13 @@ class SendSmsReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         AndroidInjection.inject(this, context)
 
-        intent.getLongExtra("id", -1L)
-                .takeIf { it >= 0 }
-                ?.let(messageRepo::getMessage)
-                ?.let { message ->
-                    val result = goAsync()
-                    retrySending.execute(message) { result.finish() }
-                }
+        val id = intent.getLongExtra("id", -1L).takeIf { it >= 0 } ?: return
+
+        val result = goAsync()
+        GlobalScope.launch(Dispatchers.Default) {
+            retrySending.execute(id)
+            result.finish()
+        }
     }
 
 }

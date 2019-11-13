@@ -111,10 +111,10 @@ class NotificationManagerImpl @Inject constructor(
         val conversation = conversationRepo.getConversation(threadId) ?: return
 
         val contentIntent = Intent(context, ComposeActivity::class.java).putExtra("threadId", threadId)
-        val taskStackBuilder = TaskStackBuilder.create(context)
-        taskStackBuilder.addParentStack(ComposeActivity::class.java)
-        taskStackBuilder.addNextIntent(contentIntent)
-        val contentPI = taskStackBuilder.getPendingIntent(threadId.toInt() + 10000, PendingIntent.FLAG_UPDATE_CURRENT)
+        val contentPI = TaskStackBuilder.create(context)
+                .addParentStack(ComposeActivity::class.java)
+                .addNextIntent(contentIntent)
+                .getPendingIntent(threadId.toInt() + 10000, PendingIntent.FLAG_UPDATE_CURRENT)
 
         val seenIntent = Intent(context, MarkSeenReceiver::class.java).putExtra("threadId", threadId)
         val seenPI = PendingIntent.getBroadcast(context, threadId.toInt() + 20000, seenIntent, PendingIntent.FLAG_UPDATE_CURRENT)

@@ -20,27 +20,29 @@ package com.moez.QKSMS.interactor
 
 import com.moez.QKSMS.model.Message
 import com.moez.QKSMS.repository.MessageRepository
-import io.reactivex.Flowable
 import javax.inject.Inject
 
-class RetrySending @Inject constructor(private val messageRepo: MessageRepository) : Interactor<Message>() {
+class RetrySending @Inject constructor(
+    private val messageRepo: MessageRepository
+) : Interactor<Long>() {
 
-    override fun buildObservable(params: Message): Flowable<Message> {
+    override suspend fun execute(params: Long) {
+        val message = messageRepo.getMessage(params)
+                ?.takeIf { it.isSms() } // TODO: Support resending failed MMS
+                ?: return
 
         // We don't want to touch the supplied message on another thread in case it's a live realm
         // object, so copy the required fields into a new object that is safe to pass around threads
-        val message = Message().apply {
-            id = params.id
-            type = params.type
-            address = params.address
-            body = params.body
-            subId = params.subId
+        val messageCopy = Message().apply {
+            id = message.id
+            type = message.type
+            address = message.address
+            body = message.body
+            subId = message.subId
         }
 
-        return Flowable.just(message)
-                .filter { message.isSms() } // TODO support resending failed MMS
-                .doOnNext { messageRepo.markSending(message.id) }
-                .doOnNext { messageRepo.sendSms(message) }
+        messageRepo.markSending(messageCopy.id)
+        messageRepo.sendSms(messageCopy)
     }
 
 }

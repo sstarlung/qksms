@@ -76,13 +76,6 @@ class MainViewModel @Inject constructor(
 ) : QkViewModel<MainView, MainState>(MainState(page = Inbox(data = conversationRepo.getConversations()))) {
 
     init {
-        disposables += deleteConversations
-        disposables += markAllSeen
-        disposables += markArchived
-        disposables += markUnarchived
-        disposables += migratePreferences
-        disposables += syncMessages
-
         // Show the syncing UI
         disposables += syncRepository.syncProgress
                 .sample(16, TimeUnit.MILLISECONDS)
@@ -99,18 +92,18 @@ class MainViewModel @Inject constructor(
 
 
         // Migrate the preferences from 2.7.3
-        migratePreferences.execute(Unit)
+        migratePreferences.launch(Unit)
 
 
         // If we have all permissions and we've never run a sync, run a sync. This will be the case
         // when upgrading from 2.7.3, or if the app's data was cleared
         val lastSync = Realm.getDefaultInstance().use { realm -> realm.where(SyncLog::class.java)?.max("date") ?: 0 }
         if (lastSync == 0 && permissionManager.isDefaultSms() && permissionManager.hasReadSms() && permissionManager.hasContacts()) {
-            syncMessages.execute(Unit)
+            syncMessages.launch(Unit)
         }
 
         ratingManager.addSession()
-        markAllSeen.execute(Unit)
+        markAllSeen.launch(Unit)
     }
 
     override fun bindView(view: MainView) {
@@ -141,7 +134,7 @@ class MainViewModel @Inject constructor(
                 .filter { it.first && it.second && it.third }
                 .take(1)
                 .autoDisposable(view.scope())
-                .subscribe { syncMessages.execute(Unit) }
+                .subscribe { syncMessages.launch(Unit) }
 
         // Launch screen from intent
         view.onNewIntentIntent
@@ -253,7 +246,7 @@ class MainViewModel @Inject constructor(
         view.optionsItemIntent
                 .filter { itemId -> itemId == R.id.archive }
                 .withLatestFrom(view.conversationsSelectedIntent) { _, conversations ->
-                    markArchived.execute(conversations)
+                    markArchived.launch(conversations)
                     view.clearSelection()
                 }
                 .autoDisposable(view.scope())
@@ -262,7 +255,7 @@ class MainViewModel @Inject constructor(
         view.optionsItemIntent
                 .filter { itemId -> itemId == R.id.unarchive }
                 .withLatestFrom(view.conversationsSelectedIntent) { _, conversations ->
-                    markUnarchived.execute(conversations)
+                    markUnarchived.launch(conversations)
                     view.clearSelection()
                 }
                 .autoDisposable(view.scope())
@@ -294,7 +287,7 @@ class MainViewModel @Inject constructor(
         view.optionsItemIntent
                 .filter { itemId -> itemId == R.id.pin }
                 .withLatestFrom(view.conversationsSelectedIntent) { _, conversations ->
-                    markPinned.execute(conversations)
+                    markPinned.launch(conversations)
                     view.clearSelection()
                 }
                 .autoDisposable(view.scope())
@@ -303,7 +296,7 @@ class MainViewModel @Inject constructor(
         view.optionsItemIntent
                 .filter { itemId -> itemId == R.id.unpin }
                 .withLatestFrom(view.conversationsSelectedIntent) { _, conversations ->
-                    markUnpinned.execute(conversations)
+                    markUnpinned.launch(conversations)
                     view.clearSelection()
                 }
                 .autoDisposable(view.scope())
@@ -313,7 +306,7 @@ class MainViewModel @Inject constructor(
                 .filter { itemId -> itemId == R.id.read }
                 .filter { permissionManager.isDefaultSms().also { if (!it) view.requestDefaultSms() } }
                 .withLatestFrom(view.conversationsSelectedIntent) { _, conversations ->
-                    markRead.execute(conversations)
+                    markRead.launch(conversations)
                     view.clearSelection()
                 }
                 .autoDisposable(view.scope())
@@ -323,7 +316,7 @@ class MainViewModel @Inject constructor(
                 .filter { itemId -> itemId == R.id.unread }
                 .filter { permissionManager.isDefaultSms().also { if (!it) view.requestDefaultSms() } }
                 .withLatestFrom(view.conversationsSelectedIntent) { _, conversations ->
-                    markUnread.execute(conversations)
+                    markUnread.launch(conversations)
                     view.clearSelection()
                 }
                 .autoDisposable(view.scope())
@@ -387,7 +380,7 @@ class MainViewModel @Inject constructor(
         view.confirmDeleteIntent
                 .autoDisposable(view.scope())
                 .subscribe { conversations ->
-                    deleteConversations.execute(conversations)
+                    deleteConversations.launch(conversations)
                     view.clearSelection()
                 }
 
@@ -396,18 +389,18 @@ class MainViewModel @Inject constructor(
                 .subscribe { (threadId, direction) ->
                     val action = if (direction == ItemTouchHelper.RIGHT) prefs.swipeRight.get() else prefs.swipeLeft.get()
                     when (action) {
-                        Preferences.SWIPE_ACTION_ARCHIVE -> markArchived.execute(listOf(threadId)) { view.showArchivedSnackbar() }
+                        Preferences.SWIPE_ACTION_ARCHIVE -> markArchived.launch(listOf(threadId)) { view.showArchivedSnackbar() }
                         Preferences.SWIPE_ACTION_DELETE -> view.showDeleteDialog(listOf(threadId))
                         Preferences.SWIPE_ACTION_CALL -> conversationRepo.getConversation(threadId)?.recipients?.firstOrNull()?.address?.let(navigator::makePhoneCall)
-                        Preferences.SWIPE_ACTION_READ -> markRead.execute(listOf(threadId))
-                        Preferences.SWIPE_ACTION_UNREAD -> markUnread.execute(listOf(threadId))
+                        Preferences.SWIPE_ACTION_READ -> markRead.launch(listOf(threadId))
+                        Preferences.SWIPE_ACTION_UNREAD -> markUnread.launch(listOf(threadId))
                     }
                 }
 
         view.undoArchiveIntent
                 .withLatestFrom(view.swipeConversationIntent) { _, pair -> pair.first }
                 .autoDisposable(view.scope())
-                .subscribe { threadId -> markUnarchived.execute(listOf(threadId)) }
+                .subscribe { threadId -> markUnarchived.launch(listOf(threadId)) }
 
         view.snackbarButtonIntent
                 .withLatestFrom(state) { _, state ->
